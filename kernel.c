@@ -56,7 +56,7 @@ static void *ksceUsbdGetDescriptor_patched(int device_id, int index, unsigned ch
   const uint16_t *strdesc;
   char ascii[256];
   TRACEF("ksceUsbdGetDescriptor_patched(%d, %d, 0x%02x): 0x%08X\n", device_id, index, bDescriptorType, device);
-  if (device != NULL) {
+  if (bDescriptorType == 0x01 && device != NULL) {
     TRACEF("  bLength:            0x%02x\n", device->bLength);
     TRACEF("  bDescriptorType:    0x%02x\n", device->bDescriptorType);
     TRACEF("  bcdUSB:             0x%04x\n", device->bcdUSB);
