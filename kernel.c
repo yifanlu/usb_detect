@@ -54,7 +54,7 @@ static tai_hook_ref_t g_ksceUsbdGetDescriptor_hook;
 static void *ksceUsbdGetDescriptor_patched(int device_id, int index, unsigned char bDescriptorType) {
   void *ret = TAI_CONTINUE(void *, g_ksceUsbdGetDescriptor_hook, device_id, index, bDescriptorType);
   TRACEF("ksceUsbdGetDescriptor_patched(%d, %d, 0x%02x): 0x%08X\n", device_id, index, bDescriptorType, ret);
-  return NULL;
+  return ret;
 }
 
 static void unicodetoascii(const uint16_t *unicode, char *ascii) {
