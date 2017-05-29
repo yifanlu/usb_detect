@@ -52,41 +52,44 @@ static SceUID g_hook;
 
 static tai_hook_ref_t g_ksceUsbdGetDescriptor_hook;
 static void *ksceUsbdGetDescriptor_patched(int device_id, int index, unsigned char bDescriptorType) {
-  SceUsbdDeviceDescriptor *device = TAI_CONTINUE(void *, g_ksceUsbdGetDescriptor_hook, device_id, index, bDescriptorType);
-  const uint16_t *strdesc;
-  char ascii[256];
-  TRACEF("ksceUsbdGetDescriptor_patched(%d, %d, 0x%02x): 0x%08X\n", device_id, index, bDescriptorType, device);
-  if (bDescriptorType == 0x01 && device != NULL) {
-    TRACEF("  bLength:            0x%02x\n", device->bLength);
-    TRACEF("  bDescriptorType:    0x%02x\n", device->bDescriptorType);
-    TRACEF("  bcdUSB:             0x%04x\n", device->bcdUSB);
-    TRACEF("  bDeviceClass:       0x%02x\n", device->bDeviceClass);
-    TRACEF("  bDeviceSubClass:    0x%02x\n", device->bDeviceSubClass);
-    TRACEF("  bDeviceProtocol:    0x%02x\n", device->bDeviceProtocol);
-    TRACEF("  bMaxPacketSize0:    0x%02x\n", device->bMaxPacketSize0);
-    TRACEF("  idVendor:           0x%04x\n", device->idVendor);
-    TRACEF("  idProduct:          0x%04x\n", device->idProduct);
-    TRACEF("  bcdDevice:          0x%04x\n", device->bcdDevice);
-    TRACEF("  iManufacturer:      0x%02x\n", device->iManufacturer);
-    /*
-    if ((strdesc = ksceUsbdGetDescriptor(device_id, device->iManufacturer, 0x03)) != NULL) {
-      unicodetoascii(&strdesc[1], ascii);
-      TRACEF("    %s\n", ascii);
+  void *ret = TAI_CONTINUE(void *, g_ksceUsbdGetDescriptor_hook, device_id, index, bDescriptorType);
+  TRACEF("ksceUsbdGetDescriptor_patched(%d, %d, 0x%02x): 0x%08X\n", device_id, index, bDescriptorType, ret);
+  if (ret != NULL) {
+    if (bDescriptorType == 0x01) {
+      SceUsbdDeviceDescriptor *device = ret;
+      const uint16_t *strdesc;
+      char ascii[256];
+      TRACEF("  bLength:            0x%02x\n", device->bLength);
+      TRACEF("  bDescriptorType:    0x%02x\n", device->bDescriptorType);
+      TRACEF("  bcdUSB:             0x%04x\n", device->bcdUSB);
+      TRACEF("  bDeviceClass:       0x%02x\n", device->bDeviceClass);
+      TRACEF("  bDeviceSubClass:    0x%02x\n", device->bDeviceSubClass);
+      TRACEF("  bDeviceProtocol:    0x%02x\n", device->bDeviceProtocol);
+      TRACEF("  bMaxPacketSize0:    0x%02x\n", device->bMaxPacketSize0);
+      TRACEF("  idVendor:           0x%04x\n", device->idVendor);
+      TRACEF("  idProduct:          0x%04x\n", device->idProduct);
+      TRACEF("  bcdDevice:          0x%04x\n", device->bcdDevice);
+      TRACEF("  iManufacturer:      0x%02x\n", device->iManufacturer);
+      /*
+      if ((strdesc = ksceUsbdGetDescriptor(device_id, device->iManufacturer, 0x03)) != NULL) {
+        unicodetoascii(&strdesc[1], ascii);
+        TRACEF("    %s\n", ascii);
+      }
+      TRACEF("  iProduct:           0x%02x\n", device->iProduct);
+      if ((strdesc = ksceUsbdGetDescriptor(device_id, device->iProduct, 0x03)) != NULL) {
+        unicodetoascii(&strdesc[1], ascii);
+        TRACEF("    %s\n", ascii);
+      }
+      TRACEF("  iSerialNumber:      0x%02x\n", device->iSerialNumber);
+      if ((strdesc = ksceUsbdGetDescriptor(device_id, device->iSerialNumber, 0x03)) != NULL) {
+        unicodetoascii(&strdesc[1], ascii);
+        TRACEF("    %s\n", ascii);
+      }
+      */
+      TRACEF("  bNumConfigurations: 0x%02x\n", device->bNumConfigurations);
     }
-    TRACEF("  iProduct:           0x%02x\n", device->iProduct);
-    if ((strdesc = ksceUsbdGetDescriptor(device_id, device->iProduct, 0x03)) != NULL) {
-      unicodetoascii(&strdesc[1], ascii);
-      TRACEF("    %s\n", ascii);
-    }
-    TRACEF("  iSerialNumber:      0x%02x\n", device->iSerialNumber);
-    if ((strdesc = ksceUsbdGetDescriptor(device_id, device->iSerialNumber, 0x03)) != NULL) {
-      unicodetoascii(&strdesc[1], ascii);
-      TRACEF("    %s\n", ascii);
-    }
-    */
-    TRACEF("  bNumConfigurations: 0x%02x\n", device->bNumConfigurations);
   }
-  return device;
+  return ret;
 }
 
 static void unicodetoascii(const uint16_t *unicode, char *ascii) {
