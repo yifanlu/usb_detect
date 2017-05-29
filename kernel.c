@@ -4,16 +4,34 @@
  * of the MIT license.  See the LICENSE file for details.
  */
 #include <psp2kern/kernel/modulemgr.h>
+#include <psp2kern/kernel/sysmem.h>
 #include <psp2kern/usbd.h>
 #include "usb_detect.h"
+#include <taihen.h>
 
 int printf(const char *fmt, ...);
+int snprintf(char *buf, int len, const char *fmt, ...);
+
+volatile static int lock = 0;
+volatile static char buf[1024] = {0};
+volatile static int at = 0;
+
+#define TRACEF(fmt, args...) do { \
+  int len; \
+  printf(fmt, args); \
+  while (lock); \
+  lock = 1; \
+  len = snprintf((char *)buf, 1024-at, fmt, args); \
+  if (at + len <= 1024) \
+    at += len; \
+  lock = 0; \
+} while (0)
 
 int usb_probe(int device_id);
 int usb_attach(int device_id);
 int usb_detach(int device_id);
 
-SceUsbdDriver driver = {
+static SceUsbdDriver driver = {
   .name = "detect",
   .probe = usb_probe,
   .attach = usb_attach,
@@ -21,13 +39,22 @@ SceUsbdDriver driver = {
   .next = NULL
 };
 
-SceUsbdDriver composite = {
-  .name = "detect",
+static SceUsbdDriver composite = {
+  .name = "detect_composite",
   .probe = usb_probe,
   .attach = usb_attach,
   .detach = usb_detach,
   .next = NULL
 };
+
+static SceUID g_hook;
+
+static tai_hook_ref_t g_ksceUsbdGetDescriptor_hook;
+static void *ksceUsbdGetDescriptor_patched(int device_id, int index, unsigned char bDescriptorType) {
+  void *ret = TAI_CONTINUE(void *, g_ksceUsbdGetDescriptor_hook, device_id, index, bDescriptorType);
+  TRACEF("ksceUsbdGetDescriptor_patched(%d, %d, 0x%02x): 0x%08X\n", device_id, index, bDescriptorType, ret);
+  return NULL;
+}
 
 static void unicodetoascii(const uint16_t *unicode, char *ascii) {
   while (*unicode > 0) {
@@ -39,49 +66,65 @@ int usb_probe(int device_id) {
   SceUsbdDeviceDescriptor *device;
   const uint16_t *strdesc;
   char ascii[256];
-  printf("Device found: %x\n", device_id);
+  TRACEF("Device found: %x\n", device_id);
 
   device = ksceUsbdGetDescriptor(device_id, 0, 0x01);
   if (device != NULL) {
-    printf("  bLength:            0x%02x\n", device->bLength);
-    printf("  bDescriptorType:    0x%02x\n", device->bDescriptorType);
-    printf("  bcdUSB:             0x%04x\n", device->bcdUSB);
-    printf("  bDeviceClass:       0x%02x\n", device->bDeviceClass);
-    printf("  bDeviceSubClass:    0x%02x\n", device->bDeviceSubClass);
-    printf("  bDeviceProtocol:    0x%02x\n", device->bDeviceProtocol);
-    printf("  bMaxPacketSize0:    0x%02x\n", device->bMaxPacketSize0);
-    printf("  idVendor:           0x%04x\n", device->idVendor);
-    printf("  idProduct:          0x%04x\n", device->idProduct);
-    printf("  bcdDevice:          0x%04x\n", device->bcdDevice);
-    printf("  iManufacturer:      0x%02x\n", device->iManufacturer);
+    TRACEF("  bLength:            0x%02x\n", device->bLength);
+    TRACEF("  bDescriptorType:    0x%02x\n", device->bDescriptorType);
+    TRACEF("  bcdUSB:             0x%04x\n", device->bcdUSB);
+    TRACEF("  bDeviceClass:       0x%02x\n", device->bDeviceClass);
+    TRACEF("  bDeviceSubClass:    0x%02x\n", device->bDeviceSubClass);
+    TRACEF("  bDeviceProtocol:    0x%02x\n", device->bDeviceProtocol);
+    TRACEF("  bMaxPacketSize0:    0x%02x\n", device->bMaxPacketSize0);
+    TRACEF("  idVendor:           0x%04x\n", device->idVendor);
+    TRACEF("  idProduct:          0x%04x\n", device->idProduct);
+    TRACEF("  bcdDevice:          0x%04x\n", device->bcdDevice);
+    TRACEF("  iManufacturer:      0x%02x\n", device->iManufacturer);
     if ((strdesc = ksceUsbdGetDescriptor(device_id, device->iManufacturer, 0x03)) != NULL) {
       unicodetoascii(&strdesc[1], ascii);
-      printf("    %s\n", ascii);
+      TRACEF("    %s\n", ascii);
     }
-    printf("  iProduct:           0x%02x\n", device->iProduct);
+    TRACEF("  iProduct:           0x%02x\n", device->iProduct);
     if ((strdesc = ksceUsbdGetDescriptor(device_id, device->iProduct, 0x03)) != NULL) {
       unicodetoascii(&strdesc[1], ascii);
-      printf("    %s\n", ascii);
+      TRACEF("    %s\n", ascii);
     }
-    printf("  iSerialNumber:      0x%02x\n", device->iSerialNumber);
+    TRACEF("  iSerialNumber:      0x%02x\n", device->iSerialNumber);
     if ((strdesc = ksceUsbdGetDescriptor(device_id, device->iSerialNumber, 0x03)) != NULL) {
       unicodetoascii(&strdesc[1], ascii);
-      printf("    %s\n", ascii);
+      TRACEF("    %s\n", ascii);
     }
-    printf("  bNumConfigurations: 0x%02x\n", device->bNumConfigurations);
+    TRACEF("  bNumConfigurations: 0x%02x\n", device->bNumConfigurations);
   }
 
-  return 0;
+  return -1;
 }
 
 int usb_attach(int device_id) {
-  printf("Device attached: %x\n", device_id);
-  return 0;
+  TRACEF("Device attached: %x\n", device_id);
+  return -1;
 }
 
 int usb_detach(int device_id) {
-  printf("Device detached: %x\n", device_id);
+  TRACEF("Device detached: %x\n", device_id);
+  return -1;
+}
+
+int k_dump_trace(char *userbuf) {
+  while (lock);
+  lock = 1;
+  ksceKernelStrncpyKernelToUser((uintptr_t)userbuf, (char *)buf, at);
+  at = 0;
+  lock = 0;
   return 0;
+}
+
+int module_stop(SceSize argc, const void *pargs) {
+  ksceUsbdUnregisterDriver(&driver);
+  ksceUsbdUnregisterDriver(&composite);
+  taiHookReleaseForKernel(g_hook, g_ksceUsbdGetDescriptor_hook);
+  return SCE_KERNEL_STOP_SUCCESS;
 }
 
 void _start() __attribute__ ((weak, alias ("module_start")));
@@ -96,5 +139,7 @@ int module_start(SceSize argc, const void *pargs) {
     printf("ksceUsbdRegisterCompositeLdd(composite): 0x%08X\n", ret);
     return SCE_KERNEL_START_FAILED;
   }
+  g_hook = taiHookFunctionExportForKernel(KERNEL_PID, &g_ksceUsbdGetDescriptor_hook, "SceUsbd", 0xA0EBCA41, 0xBC3EF82B, ksceUsbdGetDescriptor_patched);
+  printf("taiHookFunctionExportForKernel: 0x%08X\n", g_hook);
   return SCE_KERNEL_START_SUCCESS;
 }

@@ -3,13 +3,8 @@
  * This software may be modified and distributed under the terms
  * of the MIT license.  See the LICENSE file for details.
  */
-#ifndef USB_DETECT_H__
-#define USB_DETECT_H__
+#include "usb_detect.h"
 
-typedef struct {
-} args_t;
-
-int k_dump_trace(char *userbuf);
-int dump_trace(char *buf);
-
-#endif
+int dump_trace(char *buf) {
+    return k_dump_trace(buf);
+}

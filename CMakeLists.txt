@@ -17,6 +17,11 @@ set(VITA_TITLEID  "USBDETECT")
 
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -std=gnu11")
 
+link_directories(
+  ${CMAKE_BINARY_DIR}/kernel_stubs
+  ${CMAKE_BINARY_DIR}/user_stubs
+)
+
 add_executable(${SHORT_NAME}
   main.c
 )
@@ -28,7 +33,10 @@ target_link_libraries(${SHORT_NAME}
   SceGxm_stub
   SceAppUtil_stub
   SceCommonDialog_stub
+  usb_detect_helper_user_stub
 )
+
+add_dependencies(${SHORT_NAME} user_stubs)
 
 vita_create_self(${SHORT_NAME}.self ${SHORT_NAME} UNSAFE)
 
@@ -39,6 +47,9 @@ add_executable(kernel
 target_link_libraries(kernel
   SceUsbdForDriver_stub
   SceDebugForDriver_stub
+  SceSysmemForDriver_stub
+  SceSysclibForDriver_stub
+  taihenForKernel_stub
 )
 
 set_target_properties(kernel
@@ -51,10 +62,54 @@ vita_create_self(kernel.skprx kernel
   CONFIG ${CMAKE_SOURCE_DIR}/kernel.yml
 )
 
+vita_create_stubs(kernel_stubs kernel ${CMAKE_SOURCE_DIR}/kernel.yml KERNEL)
+
+add_executable(user
+  user.c
+)
+
+target_link_libraries(user
+  usb_detect_helper_stub
+)
+
+set_target_properties(user
+  PROPERTIES LINK_FLAGS "-nostdlib"
+)
+
+add_dependencies(user kernel_stubs)
+
+vita_create_self(user.suprx user
+  UNSAFE
+  CONFIG ${CMAKE_SOURCE_DIR}/user.yml
+)
+
+vita_create_stubs(user_stubs user ${CMAKE_SOURCE_DIR}/user.yml)
+
+# second kernel helper to work around unloading a kernel module with exported funcs
+add_executable(kernel2
+  kernel2.c
+)
+set_target_properties(kernel2
+  PROPERTIES LINK_FLAGS
+  -nostdlib
+)
+target_link_libraries(kernel2
+  gcc
+  taihenForKernel_stub
+)
+vita_create_self(kernel2.skprx kernel2
+  CONFIG ${CMAKE_SOURCE_DIR}/kernel2.yml
+  UNSAFE
+)
+
 vita_create_vpk(${SHORT_NAME}.vpk ${VITA_TITLEID} ${SHORT_NAME}.self
   VERSION ${VITA_VERSION}
   NAME ${VITA_APP_NAME}
   FILE ${CMAKE_CURRENT_BINARY_DIR}/kernel.skprx kernel.skprx
+  FILE ${CMAKE_CURRENT_BINARY_DIR}/kernel2.skprx kernel2.skprx
+  FILE ${CMAKE_CURRENT_BINARY_DIR}/user.suprx user.suprx
 )
 
 add_dependencies(${SHORT_NAME}.vpk kernel.skprx)
+add_dependencies(${SHORT_NAME}.vpk user.suprx)
+add_dependencies(${SHORT_NAME}.vpk kernel2.skprx)

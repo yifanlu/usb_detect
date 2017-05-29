@@ -5,3 +5,9 @@ usb_detect_helper:
     minor: 1
   main:
     start: module_start
+    stop: module_stop
+  modules:
+    usb_detect_helper:
+      syscall: true
+      functions:
+        - k_dump_trace

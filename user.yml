@@ -1,0 +1,9 @@
+usb_detect_helper_user:
+  attributes: 0
+  version:
+    major: 1
+    minor: 1
+  modules:
+    usb_detect_helper_user:
+      functions:
+        - dump_trace

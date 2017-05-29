@@ -4,6 +4,7 @@
  * of the MIT license.  See the LICENSE file for details.
  */
 #include <psp2/kernel/processmgr.h>
+#include <psp2/kernel/modulemgr.h>
 #include <psp2/io/fcntl.h>
 #include <psp2/ctrl.h>
 #include <psp2/kernel/processmgr.h>
@@ -71,39 +72,57 @@ void gxm_term(){
 }
 
 int main(int argc, char *argv[]) {
+    char buf[1024];
     args_t arg;
     int ret;
-    int uid;
+    int uid1, uid2, uid3;
     int res;
 
     psvDebugScreenInit();
 
     psvDebugScreenPrintf("Started!\n\n");
+    psvDebugScreenPrintf("Press X to start probing.\nPress Circle to stop probing and exit.\n\n");
 
-    uid = -1;
+    uid1 = -1, uid2 = -1, uid3 = -1;
     while (1) {
-        psvDebugScreenPrintf("Press X to start probing.\nPress Circle to stop probing and exit.\n\n");
 
         SceCtrlData ctrl;
-        do {
-            sceCtrlPeekBufferPositive(0, &ctrl, 1);
-        } while ((ctrl.buttons & (SCE_CTRL_SQUARE | SCE_CTRL_CROSS | SCE_CTRL_CIRCLE)) == 0);
+        sceCtrlPeekBufferPositive(0, &ctrl, 1);
 
         if (ctrl.buttons & SCE_CTRL_CIRCLE) {
-            ret = taiStopUnloadKernelModule(uid, 0, NULL, 0, NULL, &res);
+            ret = taiStopUnloadKernelModule(uid3, 0, NULL, 0, NULL, &res);
+            psvDebugScreenPrintf("Kernel 2 stop: %x, %x\n", ret, res);
+            ret = taiStopUnloadKernelModule(uid1, 0, NULL, 0, NULL, &res);
             psvDebugScreenPrintf("Kernel stop: %x, %x\n", ret, res);
-            sceKernelDelayThread(1*1000*1000);
+            ret = sceKernelStopUnloadModule(uid2, 0, NULL, 0, NULL, &res);
+            psvDebugScreenPrintf("User stop: %x, %x\n", ret, res);
             break;
         } else if (ctrl.buttons & SCE_CTRL_CROSS) {
-            uid = taiLoadKernelModule("ux0:app/USBDETECT/kernel.skprx", 0, NULL);
-            if (uid < 0) {
-                psvDebugScreenPrintf("Kernel load: %x\n", uid);
+            uid3 = taiLoadKernelModule("ux0:app/USBDETECT/kernel2.skprx", 0, NULL);
+            if (uid3 < 0) {
+                psvDebugScreenPrintf("Kernel load: %x\n", uid3);
             } else {
-                ret = taiStartKernelModule(uid, sizeof(arg), &arg, 0, NULL, &res);
+                ret = taiStartKernelModule(uid3, sizeof(arg), &arg, 0, NULL, &res);
                 psvDebugScreenPrintf("Kernel start: %x, %x\n", ret, res);
             }
-            sceKernelDelayThread(1*1000*1000);
+
+            uid1 = taiLoadKernelModule("ux0:app/USBDETECT/kernel.skprx", 0, NULL);
+            if (uid1 < 0) {
+                psvDebugScreenPrintf("Kernel load: %x\n", uid1);
+            } else {
+                ret = taiStartKernelModule(uid1, sizeof(arg), &arg, 0, NULL, &res);
+                psvDebugScreenPrintf("Kernel start: %x, %x\n", ret, res);
+            }
+
+            uid2 = sceKernelLoadStartModule("ux0:app/USBDETECT/user.suprx", 0, NULL, 0, NULL, &res);
+            psvDebugScreenPrintf("User load: %x\n", uid2);
         }
+
+        if (dump_trace(buf) > 0) {
+            psvDebugScreenPrintf(buf);
+        }
+
+        sceKernelDelayThread(1*1000*1000);
     }
 
     return 0;
