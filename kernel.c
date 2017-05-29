@@ -5,6 +5,7 @@
  */
 #include <psp2kern/kernel/modulemgr.h>
 #include <psp2kern/kernel/sysmem.h>
+#include <psp2kern/kernel/cpu.h>
 #include <psp2kern/usbd.h>
 #include "usb_detect.h"
 #include <taihen.h>
@@ -21,8 +22,8 @@ volatile static int at = 0;
   printf(fmt, args); \
   while (lock); \
   lock = 1; \
-  len = snprintf((char *)buf, 1024-at, fmt, args); \
-  if (at + len <= 1024) \
+  len = snprintf((char *)buf+at, 1024-at, fmt, args); \
+  if (at + len < 1024) \
     at += len; \
   lock = 0; \
 } while (0)
@@ -81,6 +82,7 @@ int usb_probe(int device_id) {
     TRACEF("  idProduct:          0x%04x\n", device->idProduct);
     TRACEF("  bcdDevice:          0x%04x\n", device->bcdDevice);
     TRACEF("  iManufacturer:      0x%02x\n", device->iManufacturer);
+    /*
     if ((strdesc = ksceUsbdGetDescriptor(device_id, device->iManufacturer, 0x03)) != NULL) {
       unicodetoascii(&strdesc[1], ascii);
       TRACEF("    %s\n", ascii);
@@ -95,6 +97,7 @@ int usb_probe(int device_id) {
       unicodetoascii(&strdesc[1], ascii);
       TRACEF("    %s\n", ascii);
     }
+    */
     TRACEF("  bNumConfigurations: 0x%02x\n", device->bNumConfigurations);
   }
 
@@ -112,12 +115,18 @@ int usb_detach(int device_id) {
 }
 
 int k_dump_trace(char *userbuf) {
+  int state = 0;
+  int count = 0;
+
+  ENTER_SYSCALL(state);
   while (lock);
   lock = 1;
-  ksceKernelStrncpyKernelToUser((uintptr_t)userbuf, (char *)buf, at);
+  count = at;
+  ksceKernelStrncpyKernelToUser((uintptr_t)userbuf, (char *)buf, at+1);
   at = 0;
   lock = 0;
-  return 0;
+  EXIT_SYSCALL(state);
+  return count;
 }
 
 int module_stop(SceSize argc, const void *pargs) {
@@ -131,15 +140,15 @@ void _start() __attribute__ ((weak, alias ("module_start")));
 int module_start(SceSize argc, const void *pargs) {
   int ret;
   if ((ret = ksceUsbdRegisterDriver(&driver)) < 0) {
-    printf("ksceUsbdRegisterDriver(driver): 0x%08X\n", ret);
+    TRACEF("ksceUsbdRegisterDriver(driver): 0x%08X\n", ret);
     return SCE_KERNEL_START_FAILED;
   }
   if ((ret = ksceUsbdRegisterCompositeLdd(&composite)) < 0) {
     ksceUsbdUnregisterDriver(&driver);
-    printf("ksceUsbdRegisterCompositeLdd(composite): 0x%08X\n", ret);
+    TRACEF("ksceUsbdRegisterCompositeLdd(composite): 0x%08X\n", ret);
     return SCE_KERNEL_START_FAILED;
   }
   g_hook = taiHookFunctionExportForKernel(KERNEL_PID, &g_ksceUsbdGetDescriptor_hook, "SceUsbd", 0xA0EBCA41, 0xBC3EF82B, ksceUsbdGetDescriptor_patched);
-  printf("taiHookFunctionExportForKernel: 0x%08X\n", g_hook);
+  TRACEF("taiHookFunctionExportForKernel: 0x%08X\n", g_hook);
   return SCE_KERNEL_START_SUCCESS;
 }

@@ -84,18 +84,21 @@ int main(int argc, char *argv[]) {
     psvDebugScreenPrintf("Press X to start probing.\nPress Circle to stop probing and exit.\n\n");
 
     uid1 = -1, uid2 = -1, uid3 = -1;
+    int i = 0;
     while (1) {
 
         SceCtrlData ctrl;
         sceCtrlPeekBufferPositive(0, &ctrl, 1);
 
         if (ctrl.buttons & SCE_CTRL_CIRCLE) {
-            ret = taiStopUnloadKernelModule(uid3, 0, NULL, 0, NULL, &res);
-            psvDebugScreenPrintf("Kernel 2 stop: %x, %x\n", ret, res);
-            ret = taiStopUnloadKernelModule(uid1, 0, NULL, 0, NULL, &res);
-            psvDebugScreenPrintf("Kernel stop: %x, %x\n", ret, res);
             ret = sceKernelStopUnloadModule(uid2, 0, NULL, 0, NULL, &res);
             psvDebugScreenPrintf("User stop: %x, %x\n", ret, res);
+            ret = taiStopUnloadKernelModule(uid1, 0, NULL, 0, NULL, &res);
+            psvDebugScreenPrintf("Kernel stop: %x, %x\n", ret, res);
+            ret = taiStopUnloadKernelModule(uid3, 0, NULL, 0, NULL, &res);
+            psvDebugScreenPrintf("Kernel 2 stop: %x, %x\n", ret, res);
+
+            sceKernelDelayThread(1*1000*1000);
             break;
         } else if (ctrl.buttons & SCE_CTRL_CROSS) {
             uid3 = taiLoadKernelModule("ux0:app/USBDETECT/kernel2.skprx", 0, NULL);
@@ -115,14 +118,15 @@ int main(int argc, char *argv[]) {
             }
 
             uid2 = sceKernelLoadStartModule("ux0:app/USBDETECT/user.suprx", 0, NULL, 0, NULL, &res);
-            psvDebugScreenPrintf("User load: %x\n", uid2);
+            psvDebugScreenPrintf("User load & start: %x, %x\n", uid2, res);
+
+            sceKernelDelayThread(1*1000*1000);
         }
 
-        if (dump_trace(buf) > 0) {
+        if ((i++ % 1000) == 0 && uid2 > 0 && dump_trace(buf) > 0) {
             psvDebugScreenPrintf(buf);
+            sceKernelDelayThread(1*1000*1000);
         }
-
-        sceKernelDelayThread(1*1000*1000);
     }
 
     return 0;

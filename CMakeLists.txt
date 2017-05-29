@@ -33,7 +33,7 @@ target_link_libraries(${SHORT_NAME}
   SceGxm_stub
   SceAppUtil_stub
   SceCommonDialog_stub
-  usb_detect_helper_user_stub
+  usb_detect_helper_user_stub_weak
 )
 
 add_dependencies(${SHORT_NAME} user_stubs)
