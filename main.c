@@ -124,7 +124,7 @@ int main(int argc, char *argv[]) {
         }
 
         if ((i++ % 1000) == 0 && uid2 > 0 && dump_trace(buf) > 0) {
-            psvDebugScreenPrintf(buf);
+            psvDebugScreenPuts(buf);
             sceKernelDelayThread(1*1000*1000);
         }
     }

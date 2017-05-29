@@ -6,7 +6,7 @@
 #ifndef USB_DETECT_H__
 #define USB_DETECT_H__
 
-#define LOG_BUF_SIZE (0x10000)
+#define LOG_BUF_SIZE (0x1000)
 
 typedef struct {
 } args_t;
