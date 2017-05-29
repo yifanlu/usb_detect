@@ -72,7 +72,7 @@ void gxm_term(){
 }
 
 int main(int argc, char *argv[]) {
-    char buf[1024];
+    char buf[LOG_BUF_SIZE];
     args_t arg;
     int ret;
     int uid1, uid2, uid3;

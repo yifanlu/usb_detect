@@ -14,7 +14,7 @@ int printf(const char *fmt, ...);
 int snprintf(char *buf, int len, const char *fmt, ...);
 
 volatile static int lock = 0;
-volatile static char buf[1024] = {0};
+volatile static char buf[LOG_BUF_SIZE] = {0};
 volatile static int at = 0;
 
 #define TRACEF(fmt, args...) do { \
@@ -22,8 +22,8 @@ volatile static int at = 0;
   printf(fmt, args); \
   while (lock); \
   lock = 1; \
-  len = snprintf((char *)buf+at, 1024-at, fmt, args); \
-  if (at + len < 1024) \
+  len = snprintf((char *)buf+at, LOG_BUF_SIZE-at, fmt, args); \
+  if (at + len < LOG_BUF_SIZE) \
     at += len; \
   lock = 0; \
 } while (0)
@@ -52,24 +52,10 @@ static SceUID g_hook;
 
 static tai_hook_ref_t g_ksceUsbdGetDescriptor_hook;
 static void *ksceUsbdGetDescriptor_patched(int device_id, int index, unsigned char bDescriptorType) {
-  void *ret = TAI_CONTINUE(void *, g_ksceUsbdGetDescriptor_hook, device_id, index, bDescriptorType);
-  TRACEF("ksceUsbdGetDescriptor_patched(%d, %d, 0x%02x): 0x%08X\n", device_id, index, bDescriptorType, ret);
-  return ret;
-}
-
-static void unicodetoascii(const uint16_t *unicode, char *ascii) {
-  while (*unicode > 0) {
-    *ascii++ = *unicode++;
-  }
-}
-
-int usb_probe(int device_id) {
-  SceUsbdDeviceDescriptor *device;
+  SceUsbdDeviceDescriptor *device = TAI_CONTINUE(void *, g_ksceUsbdGetDescriptor_hook, device_id, index, bDescriptorType);
   const uint16_t *strdesc;
   char ascii[256];
-  TRACEF("Device found: %x\n", device_id);
-
-  device = ksceUsbdGetDescriptor(device_id, 0, 0x01);
+  TRACEF("ksceUsbdGetDescriptor_patched(%d, %d, 0x%02x): 0x%08X\n", device_id, index, bDescriptorType, device);
   if (device != NULL) {
     TRACEF("  bLength:            0x%02x\n", device->bLength);
     TRACEF("  bDescriptorType:    0x%02x\n", device->bDescriptorType);
@@ -100,6 +86,20 @@ int usb_probe(int device_id) {
     */
     TRACEF("  bNumConfigurations: 0x%02x\n", device->bNumConfigurations);
   }
+  return device;
+}
+
+static void unicodetoascii(const uint16_t *unicode, char *ascii) {
+  while (*unicode > 0) {
+    *ascii++ = *unicode++;
+  }
+}
+
+int usb_probe(int device_id) {
+  SceUsbdDeviceDescriptor *device;
+  TRACEF("Device found: %x\n", device_id);
+
+  device = ksceUsbdGetDescriptor(device_id, 0, 0x01);
 
   return -1;
 }
